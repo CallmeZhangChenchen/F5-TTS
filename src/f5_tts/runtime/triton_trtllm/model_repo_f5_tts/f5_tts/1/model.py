@@ -228,6 +228,7 @@ class TritonPythonModel:
         max_seq_len = min(max(estimated_reference_target_mel_len), self.max_mel_len)
 
         batch = len(requests)
+        print('batch',batch)
         mel_features = torch.zeros((batch, max_seq_len, self.n_mel_channels), dtype=torch.float16).to(self.device)
         for i, mel in enumerate(mel_features_list):
             mel_features[i, : mel.shape[1], :] = mel

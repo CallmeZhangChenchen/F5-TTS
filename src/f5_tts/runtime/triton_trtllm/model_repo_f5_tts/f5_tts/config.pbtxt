@@ -16,7 +16,7 @@ name: "f5_tts"
 backend: "python"
 max_batch_size: 4
 dynamic_batching {
-    max_queue_delay_microseconds: 1000
+    max_queue_delay_microseconds: 60000000
 }
 parameters [
   {

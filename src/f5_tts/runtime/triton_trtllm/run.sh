@@ -24,7 +24,7 @@ fi
 if [ $stage -le 1 ] && [ $stop_stage -ge 1 ]; then
     echo "Converting checkpoint"
     python3 ./scripts/convert_checkpoint.py \
-        --timm_ckpt "$F5_TTS_HF_DOWNLOAD_PATH/$model/model_1200000.pt" \
+        --timm_ckpt "$F5_TTS_HF_DOWNLOAD_PATH/$model/model_1250000.safetensors" \
         --output_dir "$F5_TTS_TRT_LLM_CHECKPOINT_PATH" --model_name $model
     python_package_path=/usr/local/lib/python3.12/dist-packages
     cp -r patch/* $python_package_path/tensorrt_llm/models
@@ -44,7 +44,7 @@ if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
     echo "Building triton server"
     rm -r $model_repo
     cp -r ./model_repo_f5_tts $model_repo
-    python3 scripts/fill_template.py -i $model_repo/f5_tts/config.pbtxt vocab:$F5_TTS_HF_DOWNLOAD_PATH/$model/vocab.txt,model:$F5_TTS_HF_DOWNLOAD_PATH/$model/model_1200000.pt,trtllm:$F5_TTS_TRT_LLM_ENGINE_PATH,vocoder:vocos
+    python3 scripts/fill_template.py -i $model_repo/f5_tts/config.pbtxt vocab:$F5_TTS_HF_DOWNLOAD_PATH/$model/vocab.txt,model:$F5_TTS_HF_DOWNLOAD_PATH/$model/model_1250000.safetensors,trtllm:$F5_TTS_TRT_LLM_ENGINE_PATH,vocoder:vocos
     cp $vocoder_trt_engine_path $model_repo/vocoder/1/vocoder.plan
 fi
 

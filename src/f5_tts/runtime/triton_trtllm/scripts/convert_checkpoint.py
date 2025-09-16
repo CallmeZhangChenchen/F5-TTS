@@ -174,7 +174,7 @@ def parse_arguments():
         type=str,
         default="F5TTS_Base",
         choices=[
-            "F5TTS_Base",
+            "F5TTS_Base","F5TTS_v1_Base"
         ],
     )  # TODO: support F5TTS_v1_Base
     parser.add_argument("--timm_ckpt", type=str, default="./ckpts/model_1200000.pt")
@@ -203,12 +203,22 @@ def convert_timm_dit(args, mapping, dtype="float32"):
     torch_dtype = str_dtype_to_torch(dtype)
     tensor_parallel = mapping.tp_size
 
-    model_params = dict(torch.load(args.timm_ckpt))
-    model_params = {
-        k: v for k, v in model_params["ema_model_state_dict"].items() if k.startswith("ema_model.transformer")
-    }
-    prefix = "ema_model.transformer."
-    model_params = {key[len(prefix) :] if key.startswith(prefix) else key: value for key, value in model_params.items()}
+    ckpt_path = args.timm_ckpt
+    ckpt_ext = os.path.splitext(ckpt_path)[1]
+    print(f'ckpt_ext: {ckpt_ext}')
+
+    from safetensors.torch import load_file as safe_load_file
+    if ckpt_ext == ".safetensors":
+        model_params = dict(safe_load_file(ckpt_path))
+    else:
+        ckpt = torch.load(ckpt_path, map_location="cpu")
+        model_params = dict(ckpt["ema_model_state_dict"])
+
+    if any(k.startswith("ema_model.transformer.") for k in model_params.keys()):
+        prefix = "ema_model.transformer."
+        model_params = {
+            key[len(prefix):] if key.startswith(prefix) else key: value for key, value in model_params.items() if key.startswith(prefix)
+        }
 
     timm_to_trtllm_name = FACEBOOK_DIT_NAME_MAPPING
 

@@ -40,20 +40,22 @@ class TextEmbedding(nn.Module):
 
     def forward(self, text):
         # only keep tensors with value not -1
-        text_mask = text != -1
+        text_mask = text != -1    
         text_pad_cut_off_index = text_mask.sum(dim=1).max()
 
         text = text[:, :text_pad_cut_off_index]
-        text = self.text_embed(text)
-        text = text + self.freqs_cis[: text.shape[1], :]
+        text_mask_cutoff = text  == 0
+        text = self.text_embed(text)   
+        text = text + self.freqs_cis[:text.shape[1], :]
+        text = text.masked_fill(text_mask_cutoff.unsqueeze(-1).expand(-1, -1, text.size(-1)), 0.0)
         for block in self.text_blocks:
             text = block(text)
-        # padding text to the original length
-        # text shape: B,seq_len,C
-        # pad at the second dimension
-        text = F.pad(text, (0, 0, 0, text_mask.shape[1] - text.shape[1], 0, 0), value=0)
-        return text
+            text = text.masked_fill(text_mask_cutoff.unsqueeze(-1).expand(-1, -1, text.size(-1)), 0.0)
 
+        # padding text back to original length
+        text = F.pad(text, (0, 0, 0, text_mask.shape[1] - text.shape[1], 0, 0), value=0)
+
+        return text
 
 class GRN(nn.Module):
     def __init__(self, dim):
@@ -113,19 +115,23 @@ def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0, theta_resca
 
 
 def load_checkpoint(ckpt_path, use_ema=True):
-    checkpoint = torch.load(ckpt_path, weights_only=True)
-    if use_ema:
-        checkpoint["model_state_dict"] = {
-            k.replace("ema_model.", ""): v
-            for k, v in checkpoint["ema_model_state_dict"].items()
-            if k not in ["initted", "step"]
-        }
-    dict_state = checkpoint["model_state_dict"]
+    
+    ckpt_ext = os.path.splitext(ckpt_path)[1]
+    print(f'ckpt_ext: {ckpt_ext}')
+
+    from safetensors.torch import load_file as safe_load_file
+    if ckpt_ext == ".safetensors":
+        model_params = dict(safe_load_file(ckpt_path))
+    else:
+        ckpt = torch.load(ckpt_path, map_location="cpu")
+        model_params = dict(ckpt["ema_model_state_dict"])
+    dict_state = model_params 
+
     text_embed_dict = {}
     for key in dict_state.keys():
         # transformer.text_embed.text_embed.weight -> text_embed.weight
         if "text_embed" in key:
-            text_embed_dict[key.replace("transformer.text_embed.", "")] = dict_state[key]
+            text_embed_dict[key.replace("ema_model.transformer.text_embed.", "")] = dict_state[key]
     return text_embed_dict
 
 
