@@ -44,7 +44,7 @@ class TextEmbedding(nn.Module):
         text_pad_cut_off_index = text_mask.sum(dim=1).max()
 
         text = text[:, :text_pad_cut_off_index]
-        text_mask_cutoff = text  == 0
+        text_mask_cutoff = (text == 0) | (text == -1)
         text = self.text_embed(text)   
         text = text + self.freqs_cis[:text.shape[1], :]
         text = text.masked_fill(text_mask_cutoff.unsqueeze(-1).expand(-1, -1, text.size(-1)), 0.0)
